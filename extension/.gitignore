@@ -1,0 +1,11 @@
+.vscode
+.vscodeignore
+node_modules
+package-lock.json
+package.json
+dist
+tsconfig.ts
+tsconfig.json
+webpack.config.js
+webpack.config.ts
+.vscode-test.mjs
