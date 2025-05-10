@@ -15,14 +15,32 @@
     "commands": [
       {
         "command": "codegenie.processAIComment",
-        "title": "CodeGenie: Generate Code from Comment"
+        "title": "CodeGenie: Process AI Comment"
+      },
+      {
+        "command": "codegenie.acceptInlineCompletion",
+        "title": "CodeGenie: Accept Inline Completion"
+      },
+      {
+        "command": "codegenie.convertCode",
+        "title": "CodeGenie: Convert Code"
       }
     ],
     "keybindings": [
       {
         "command": "codegenie.processAIComment",
-        "key": "ctrl+shift+g",
-        "mac": "cmd+shift+g"
+        "key": "ctrl+alt+g",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "codegenie.acceptInlineCompletion",
+        "key": "ctrl+alt+c",
+        "when": "editorTextFocus && inlineSuggestionVisible"
+      },
+      {
+        "command": "codegenie.convertCode",
+        "key": "ctrl+alt+t",
+        "when": "editorTextFocus"
       }
     ]
   },
