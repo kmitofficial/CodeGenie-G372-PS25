@@ -1,4 +1,6 @@
-export function getWebviewContent(code: string, languageId: string): string {
+import { Webview, Uri } from "vscode";
+
+export function getWebviewContent(webview: Webview, extensionUri: Uri, code: string, languageId: string): string {
   const escapeHtml = (text: string): string => {
     return text
       .replace(/&/g, "&amp;")

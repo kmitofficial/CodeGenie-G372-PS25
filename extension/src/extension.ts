@@ -3,12 +3,15 @@ import axios from "axios";
 import { getLoginPageContent } from "./templates/loginTemplate";
 import { getWebviewContent } from "./templates/previewTemplate";
 import { getCodeConversionContent } from "./templates/codeConversionTemplate";
+import { getSnippetLibraryContent } from "./templates/snippetLibraryTemplate";
+import { SnippetManager } from "./snippetManager";
 
 // Define configurations
 const CONFIG = {
     GHOST_PREVIEW_MAX_LINES: 10, // Maximum lines for ghost preview (inline)
     WEBVIEW_TITLE: "CodeGenie Preview",
     CODE_CONVERSION_TITLE: "CodeGenie Code Converter",
+    SNIPPET_LIBRARY_TITLE: "CodeGenie Snippet Library"
 };
 
 // List of supported languages for conversion
@@ -32,6 +35,9 @@ const SUPPORTED_LANGUAGES = [
 export function activate(context: vscode.ExtensionContext) {
     console.log('🚀 Extension "codegenie" is now active!');
 
+    // Initialize the snippet manager
+    const snippetManager = SnippetManager.getInstance(context);
+
     // Show login page immediately on activation
     showLoginPage(context.extensionUri);
 
@@ -53,8 +59,43 @@ export function activate(context: vscode.ExtensionContext) {
         CodeGenieCompletionProvider.setCurrentCompletion(null);
     }, null, context.subscriptions);
 
-    // Register command to process AI comments
-    let disposable = vscode.commands.registerCommand("codegenie.processAIComment", async () => {
+    // Register the unified menu command (Ctrl+Alt+C)
+    let unifiedMenuCommand = vscode.commands.registerCommand("codegenie.showMenu", async () => {
+        const options = [
+            { label: "Process AI Comment", detail: "Generate code based on your comment" },
+            { label: "Convert Code", detail: "Convert selected code to another language" },
+            { label: "Open Snippet Library", detail: "Browse and manage your code snippets" },
+            { label: "Save Selection as Snippet", detail: "Save selected code as a reusable snippet" },
+            { label: "Suggest Snippets", detail: "Get context-aware snippet suggestions" }
+        ];
+
+        const selectedOption = await vscode.window.showQuickPick(options, {
+            placeHolder: "Select CodeGenie action"
+        });
+
+        if (!selectedOption) return; // User cancelled
+
+        switch (selectedOption.label) {
+            case "Process AI Comment":
+                await processAIComment();
+                break;
+            case "Convert Code":
+                await convertCode(context.extensionUri);
+                break;
+            case "Open Snippet Library":
+                showSnippetLibraryPanel(context.extensionUri);
+                break;
+            case "Save Selection as Snippet":
+                await saveSnippet(snippetManager);
+                break;
+            case "Suggest Snippets":
+                await suggestSnippets(snippetManager);
+                break;
+        }
+    });
+
+    // Process AI comment function
+    async function processAIComment() {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
             vscode.window.showErrorMessage("No active editor found.");
@@ -84,12 +125,6 @@ export function activate(context: vscode.ExtensionContext) {
                     cursor_line: lineNumber,
                     language_id: languageId
                 });
-                // const response = await axios.post("https://d9d4-183-82-97-138.ngrok-free.app/generate", {
-                //     prompt: data,
-                //     file_content: fileContent,
-                //     cursor_line: lineNumber,
-                //     language_id: languageId
-                // });
 
                 if (!response.data.status || response.data.status !== "success") {
                     throw new Error(response.data.error || "Unknown error from backend");
@@ -112,10 +147,15 @@ export function activate(context: vscode.ExtensionContext) {
                     // For short responses, trigger ghost preview
                     // Store data for the completion provider to use
                     CodeGenieCompletionProvider.setCurrentCompletion({
-                        line: lineNumber,
+                        line: lineNumber + 1, // Show preview on the line AFTER the comment
                         text: aiResponse,
                         indent: originalIndent
                     });
+                    
+                    // Move cursor to the next line to trigger the inline completion
+                    const nextLinePosition = new vscode.Position(lineNumber + 1, 0);
+                    editor.selection = new vscode.Selection(nextLinePosition, nextLinePosition);
+                    
                     // Trigger the inline completion
                     await vscode.commands.executeCommand('editor.action.inlineSuggest.trigger');
                 } else {
@@ -138,10 +178,10 @@ export function activate(context: vscode.ExtensionContext) {
                 vscode.window.showErrorMessage(errorMessage);
             }
         });
-    });
+    }
 
-    // Register command to convert code from one language to another
-    let convertCodeCommand = vscode.commands.registerCommand("codegenie.convertCode", async () => {
+    // Convert code function
+    async function convertCode(extensionUri: vscode.Uri) {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
             vscode.window.showErrorMessage("No active editor found.");
@@ -192,21 +232,14 @@ export function activate(context: vscode.ExtensionContext) {
                     throw new Error(response.data.error || "Unknown error from backend");
                 }
 
-                const convertedCode = response.data.refined_code || response.data.response;
+                const convertedCode = response.data.converted_code;
                 
-                // Show converted code in webview
-                showCodeConversionPanel(
-                    context.extensionUri,
-                    selectedText,
-                    convertedCode,
-                    sourceLanguage,
-                    targetLanguage
-                );
-
-                vscode.window.showInformationMessage(`✅ CodeGenie: Code converted to ${targetLanguage} successfully!`);
-
+                // Show the converted code in a webview panel
+                showCodeConversionPanel(extensionUri, sourceLanguage, targetLanguage, selectedText, convertedCode);
+                
+                vscode.window.showInformationMessage(`✅ CodeGenie: Code converted from ${sourceLanguage} to ${targetLanguage}`);
             } catch (error: any) {
-                console.error("Backend error:", error?.response?.data || error.message);
+                console.error("Conversion error:", error?.response?.data || error.message);
                 
                 let errorMessage = "❌ Error converting code";
                 if (error?.response?.data?.error) {
@@ -218,34 +251,248 @@ export function activate(context: vscode.ExtensionContext) {
                 vscode.window.showErrorMessage(errorMessage);
             }
         });
+    }
+
+    // Save snippet function
+    async function saveSnippet(snippetManager: SnippetManager) {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            vscode.window.showErrorMessage("No active editor found.");
+            return;
+        }
+
+        const selection = editor.selection;
+        if (selection.isEmpty) {
+            vscode.window.showErrorMessage("Please select code to save as a snippet.");
+            return;
+        }
+
+        const code = editor.document.getText(selection);
+        const languageId = editor.document.languageId;
+
+        // Prompt for snippet name
+        const snippetName = await vscode.window.showInputBox({
+            placeHolder: "Enter a name for this snippet",
+            prompt: "Give your code snippet a descriptive name"
+        });
+
+        if (!snippetName) {
+            return; // User cancelled
+        }
+
+        // Prompt for snippet description
+        const snippetDescription = await vscode.window.showInputBox({
+            placeHolder: "Enter a description (optional)",
+            prompt: "Add a short description about what this snippet does"
+        });
+
+        // Prompt for tags
+        const snippetTags = await vscode.window.showInputBox({
+            placeHolder: "Enter tags separated by commas (optional)",
+            prompt: "Add tags to help find this snippet later"
+        });
+
+        const tags = snippetTags ? snippetTags.split(',').map(tag => tag.trim()) : [];
+
+        // Save the snippet
+        snippetManager.addSnippet({
+            id: Date.now().toString(),
+            name: snippetName,
+            description: snippetDescription || "",
+            code,
+            language: languageId,
+            tags,
+            dateCreated: new Date().toISOString(),
+            usage: 0
+        });
+
+        vscode.window.showInformationMessage(`✅ Snippet "${snippetName}" saved successfully!`);
+    }
+
+    // Suggest snippets function
+    async function suggestSnippets(snippetManager: SnippetManager) {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            vscode.window.showErrorMessage("No active editor found.");
+            return;
+        }
+
+        const document = editor.document;
+        const languageId = document.languageId;
+        
+        // Get context around cursor
+        const position = editor.selection.active;
+        const lineNumber = position.line;
+        const contextStart = Math.max(0, lineNumber - 5);
+        const contextEnd = Math.min(document.lineCount - 1, lineNumber + 5);
+        
+        let context = "";
+        for (let i = contextStart; i <= contextEnd; i++) {
+            context += document.lineAt(i).text + "\n";
+        }
+
+        // Get relevant snippets based on language and context
+        const relevantSnippets = snippetManager.getSuggestedSnippets(languageId, context);
+        
+        if (relevantSnippets.length === 0) {
+            vscode.window.showInformationMessage("No relevant snippets found for current context.");
+            return;
+        }
+
+        // Show quick pick with relevant snippets
+        const selectedItem = await vscode.window.showQuickPick(
+            relevantSnippets.map(snippet => ({
+                label: snippet.name,
+                description: snippet.description,
+                detail: `Language: ${snippet.language} | Used: ${snippet.usage} times`,
+                snippet
+            })),
+            {
+                placeHolder: "Select a snippet to insert",
+                matchOnDescription: true,
+                matchOnDetail: true
+            }
+        );
+
+        if (selectedItem) {
+            // Insert the selected snippet
+            editor.edit(editBuilder => {
+                editBuilder.insert(position, selectedItem.snippet.code);
+            });
+            
+            // Update usage count
+            snippetManager.incrementSnippetUsage(selectedItem.snippet.id);
+        }
+    }
+
+    // Register document change listener to detect frequent code patterns
+    const frequencyDetectionChangeListener = vscode.workspace.onDidChangeTextDocument((event) => {
+        // Only process substantial changes (not just cursor movements)
+        if (event.contentChanges.length > 0) {
+            snippetManager.analyzeDocumentChanges(event);
+        }
     });
 
-    context.subscriptions.push(disposable, convertCodeCommand);
+    // Keep these other commands for backward compatibility
+    let processAICommentCommand = vscode.commands.registerCommand("codegenie.processAIComment", () => processAIComment());
+    let convertCodeCommand = vscode.commands.registerCommand("codegenie.convertCode", () => convertCode(context.extensionUri));
+    let openSnippetLibraryCommand = vscode.commands.registerCommand("codegenie.openSnippetLibrary", () => showSnippetLibraryPanel(context.extensionUri));
+    let saveSnippetCommand = vscode.commands.registerCommand("codegenie.saveSnippet", () => saveSnippet(snippetManager));
+    let suggestSnippetsCommand = vscode.commands.registerCommand("codegenie.suggestSnippets", () => suggestSnippets(snippetManager));
+    
+    // Register a dummy command for tracking code usage
+    const trackCodeUsageCommand = vscode.commands.registerCommand("codegenie.trackCodeUsage", () => {
+        vscode.window.showInformationMessage("Tracking code usage is not yet implemented.");
+    });
+
+    // Register text document content provider for code usage tracking
+    let trackCodeUsageProvider = vscode.workspace.registerTextDocumentContentProvider("codegenie-usage", {
+        provideTextDocumentContent(uri) {
+            return ""; // Nothing to display
+        }
+    });
+
+    // Add all commands to subscriptions
+    context.subscriptions.push(
+        unifiedMenuCommand,
+        processAICommentCommand,
+        convertCodeCommand,
+        openSnippetLibraryCommand,
+        saveSnippetCommand,
+        trackCodeUsageCommand,
+        frequencyDetectionChangeListener,
+        trackCodeUsageProvider,
+        suggestSnippetsCommand
+    );
 }
 
 // Function to show login page
 function showLoginPage(extensionUri: vscode.Uri) {
     const panel = vscode.window.createWebviewPanel(
-        'codeGenie.login',
-        'CodeGenie Login',
-        vscode.ViewColumn.Active,
+        "codeGenieLogin",
+        "CodeGenie Login",
+        vscode.ViewColumn.One,
         {
             enableScripts: true,
-            localResourceRoots: [extensionUri],
-            retainContextWhenHidden: true
+            localResourceRoots: [extensionUri]
         }
     );
-    
-    panel.webview.html = getLoginPageContent();
-    
-    // Handle messages from the login form
+
+    panel.webview.html = getLoginPageContent(panel.webview, extensionUri);
+
     panel.webview.onDidReceiveMessage(
         message => {
             switch (message.command) {
-                case 'login':
-                    // Handle login (placeholder for now)
+                case "login":
+                    // Here you would typically verify the credentials
+                    // For now, just show a success message
+                    vscode.window.showInformationMessage(`Successfully logged in as ${message.email}`);
                     panel.dispose();
-                    break;
+                    return;
+            }
+        },
+        undefined,
+        []
+    );
+}
+
+// Function to show code preview panel
+function showPreviewPanel(
+    extensionUri: vscode.Uri,
+    code: string,
+    editor: vscode.TextEditor,
+    lineNumber: number,
+    indent: string, 
+    language: string
+) {
+    const panel = vscode.window.createWebviewPanel(
+        "codeGeniePreview",
+        CONFIG.WEBVIEW_TITLE,
+        vscode.ViewColumn.Beside,
+        {
+            enableScripts: true,
+            localResourceRoots: [extensionUri]
+        }
+    );
+
+    panel.webview.html = getWebviewContent(panel.webview, extensionUri, code, language);
+
+    panel.webview.onDidReceiveMessage(
+        message => {
+            switch (message.command) {
+                case "insert":
+                    // Insert the code at the line after the comment
+                    const indentedCode = message.code
+                        .split('\n')
+                        .map((line: string, index: number) => index === 0 ? line : indent + line)
+                        .join('\n');
+                    
+                    // Create position for the line after the comment
+                    const position = new vscode.Position(lineNumber + 1, 0);
+                    editor.edit(editBuilder => {
+                        // Insert at the next line with proper indentation
+                        editBuilder.insert(position, indentedCode + '\n');
+                    });
+                    
+                    panel.dispose();
+                    return;
+                
+                case "saveSnippet":
+                    // Save the code as a snippet
+                    const snippetManager = SnippetManager.getInstance();
+                    snippetManager.addSnippet({
+                        id: Date.now().toString(),
+                        name: message.name || "Untitled Snippet",
+                        description: message.description || "",
+                        code: message.code,
+                        language: language,
+                        tags: message.tags ? message.tags.split(',').map((t: string) => t.trim()) : [],
+                        dateCreated: new Date().toISOString(),
+                        usage: 0
+                    });
+                    
+                    vscode.window.showInformationMessage(`✅ Snippet "${message.name}" saved successfully!`);
+                    return;
             }
         },
         undefined,
@@ -256,54 +503,61 @@ function showLoginPage(extensionUri: vscode.Uri) {
 // Function to show code conversion panel
 function showCodeConversionPanel(
     extensionUri: vscode.Uri,
-    sourceCode: string,
-    convertedCode: string,
     sourceLanguage: string,
-    targetLanguage: string
+    targetLanguage: string,
+    originalCode: string,
+    convertedCode: string
 ) {
-    // Create and show panel
     const panel = vscode.window.createWebviewPanel(
-        'codeGenie.codeConversion',
+        "codeGenieConverter",
         CONFIG.CODE_CONVERSION_TITLE,
         vscode.ViewColumn.Beside,
         {
             enableScripts: true,
-            localResourceRoots: [extensionUri],
-            retainContextWhenHidden: true
+            localResourceRoots: [extensionUri]
         }
     );
 
-    // Set HTML content
     panel.webview.html = getCodeConversionContent(
-        sourceCode,
-        convertedCode,
+        panel.webview,
+        extensionUri,
         sourceLanguage,
-        targetLanguage
+        targetLanguage,
+        originalCode,
+        convertedCode
     );
 
-    // Handle messages from webview
     panel.webview.onDidReceiveMessage(
-        async (message) => {
+        message => {
             switch (message.command) {
-                case 'copy':
-                    // Copy the converted code to clipboard
-                    vscode.env.clipboard.writeText(message.code);
-                    vscode.window.showInformationMessage("✅ CodeGenie: Converted code copied to clipboard!");
-                    break;
-                case 'insert':
-                    // Insert the code at current cursor position
-                    const editor = vscode.window.activeTextEditor;
-                    if (editor) {
-                        await editor.edit((editBuilder) => {
-                            editBuilder.insert(editor.selection.active, message.code);
-                        });
-                        vscode.window.showInformationMessage("✅ CodeGenie: Converted code inserted!");
-                    }
+                case "insert":
+                    // Create a new document and insert the converted code
+                    vscode.workspace.openTextDocument({
+                        language: targetLanguage,
+                        content: message.code
+                    }).then(doc => {
+                        vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
+                    });
+                    
                     panel.dispose();
-                    break;
-                case 'cancel':
-                    panel.dispose();
-                    break;
+                    return;
+                
+                case "saveSnippet":
+                    // Save the converted code as a snippet
+                    const snippetManager = SnippetManager.getInstance();
+                    snippetManager.addSnippet({
+                        id: Date.now().toString(),
+                        name: message.name || `Converted from ${sourceLanguage} to ${targetLanguage}`,
+                        description: message.description || `Code converted from ${sourceLanguage} to ${targetLanguage}`,
+                        code: message.code,
+                        language: targetLanguage,
+                        tags: message.tags ? message.tags.split(',').map((t: string) => t.trim()) : [sourceLanguage, targetLanguage, "converted"],
+                        dateCreated: new Date().toISOString(),
+                        usage: 0
+                    });
+                    
+                    vscode.window.showInformationMessage(`✅ Snippet "${message.name}" saved successfully!`);
+                    return;
             }
         },
         undefined,
@@ -311,115 +565,134 @@ function showCodeConversionPanel(
     );
 }
 
-// Class to handle inline ghost previews (similar to GitHub Copilot)
-class CodeGenieCompletionProvider implements vscode.InlineCompletionItemProvider {
-    private static currentCompletion: { line: number; text: string; indent: string } | null = null;
+// Function to show snippet library panel
+function showSnippetLibraryPanel(extensionUri: vscode.Uri) {
+    const panel = vscode.window.createWebviewPanel(
+        "codeGenieSnippetLibrary",
+        CONFIG.SNIPPET_LIBRARY_TITLE,
+        vscode.ViewColumn.One,
+        {
+            enableScripts: true,
+            localResourceRoots: [extensionUri]
+        }
+    );
 
-    static setCurrentCompletion(completion: { line: number; text: string; indent: string } | null) {
+    const snippetManager = SnippetManager.getInstance();
+    const snippets = snippetManager.getAllSnippets();
+
+    panel.webview.html = getSnippetLibraryContent(panel.webview, extensionUri, snippets);
+
+    panel.webview.onDidReceiveMessage(
+        message => {
+            switch (message.command) {
+                case "insert":
+                    // Insert the snippet into the active editor
+                    const editor = vscode.window.activeTextEditor;
+                    if (editor) {
+                        const position = editor.selection.active;
+                        editor.edit(editBuilder => {
+                            editBuilder.insert(position, message.code);
+                        });
+                        
+                        // Update usage count
+                        snippetManager.incrementSnippetUsage(message.id);
+                    } else {
+                        vscode.window.showErrorMessage("No active editor to insert snippet.");
+                    }
+                    return;
+                
+                case "delete":
+                    // Delete the snippet
+                    snippetManager.deleteSnippet(message.id);
+                    
+                    // Refresh the webview with updated snippets
+                    panel.webview.html = getSnippetLibraryContent(
+                        panel.webview,
+                        extensionUri,
+                        snippetManager.getAllSnippets()
+                    );
+                    
+                    vscode.window.showInformationMessage(`✅ Snippet deleted successfully.`);
+                    return;
+                
+                case "edit":
+                    // Update the snippet
+                    snippetManager.updateSnippet({
+                        id: message.id,
+                        name: message.name,
+                        description: message.description,
+                        code: message.code,
+                        language: message.language,
+                        tags: message.tags ? message.tags.split(',').map((t: string) => t.trim()) : [],
+                        dateCreated: message.dateCreated, // Keep original creation date
+                        usage: parseInt(message.usage) || 0
+                    });
+                    
+                    // Refresh the webview with updated snippets
+                    panel.webview.html = getSnippetLibraryContent(
+                        panel.webview,
+                        extensionUri,
+                        snippetManager.getAllSnippets()
+                    );
+                    
+                    vscode.window.showInformationMessage(`✅ Snippet "${message.name}" updated successfully.`);
+                    return;
+                
+                case "refresh":
+                    // Refresh the webview with the latest snippets
+                    panel.webview.html = getSnippetLibraryContent(
+                        panel.webview,
+                        extensionUri,
+                        snippetManager.getAllSnippets()
+                    );
+                    return;
+            }
+        },
+        undefined,
+        []
+    );
+}
+
+class CodeGenieCompletionProvider implements vscode.InlineCompletionItemProvider {
+    private static currentCompletion: { line: number, text: string, indent: string } | null = null;
+
+    static setCurrentCompletion(completion: { line: number, text: string, indent: string } | null) {
         this.currentCompletion = completion;
     }
 
     async provideInlineCompletionItems(
         document: vscode.TextDocument,
         position: vscode.Position,
-        context: vscode.InlineCompletionContext
-    ): Promise<vscode.InlineCompletionItem[] | null> {
-        const currentCompletion = CodeGenieCompletionProvider.currentCompletion;
-        
-        // Only provide completion if we have stored data and cursor is at the right position
-        if (!currentCompletion || position.line !== currentCompletion.line) {
-            return null;
+        context: vscode.InlineCompletionContext,
+        token: vscode.CancellationToken
+    ): Promise<vscode.InlineCompletionItem[] | vscode.InlineCompletionList> {
+        if (!CodeGenieCompletionProvider.currentCompletion) {
+            return [];
         }
 
-        // Format the completion text with proper indentation
-        const lines = currentCompletion.text.split('\n');
-        const formattedText = lines.map((line, i) => {
-            return i === 0 ? line : `${currentCompletion.indent}${line}`;
-        }).join('\n');
-
-        // Create the inline completion item
-        const item = new vscode.InlineCompletionItem(
-            `\n${currentCompletion.indent}${formattedText}\n${currentCompletion.indent}`,
-            new vscode.Range(position, position)
-        );
-
-        // Set command that will be executed when the item is accepted
-        item.command = {
-            command: 'editor.action.inlineSuggest.accept',
-            title: 'Accept'
-        };
-
-        return [item];
+        const { line, text, indent } = CodeGenieCompletionProvider.currentCompletion;
+        
+        // Only show completion at the specific line
+        if (position.line !== line || position.character !== 0) {
+            return [];
+        }
+        
+        // Format the text with proper indentation
+        const indentedText = text
+            .split('\n')
+            .map((line, index) => index === 0 ? indent + line : indent + line)
+            .join('\n');
+        
+        return [
+            new vscode.InlineCompletionItem(
+                indentedText, 
+                new vscode.Range(position, position)
+            )
+        ];
     }
 }
 
-// Function to show preview panel for larger code blocks
-function showPreviewPanel(
-    extensionUri: vscode.Uri,
-    codeContent: string,
-    editor: vscode.TextEditor,
-    lineNumber: number,
-    indent: string,
-    languageId: string
-) {
-    // Create and show panel
-    const panel = vscode.window.createWebviewPanel(
-        'codeGenie.preview',
-        CONFIG.WEBVIEW_TITLE,
-        vscode.ViewColumn.Beside,
-        {
-            enableScripts: true,
-            localResourceRoots: [extensionUri],
-            retainContextWhenHidden: true
-        }
-    );
-
-    // Set HTML content with the original code
-    panel.webview.html = getWebviewContent(codeContent, languageId);
-
-    // Handle messages from webview
-    panel.webview.onDidReceiveMessage(
-        async (message) => {
-            switch (message.command) {
-                case 'accept':
-                    // Use the potentially edited code from the message
-                    await insertCode(editor, lineNumber, message.code, indent);
-                    panel.dispose();
-                    break;
-                case 'reject':
-                    panel.dispose();
-                    break;
-            }
-        },
-        undefined,
-        []
-    );
-}
-
-// Function to insert code into editor
-async function insertCode(editor: vscode.TextEditor, lineNumber: number, code: string, indent: string) {
-    // Format the code with proper indentation
-    const formattedCode = code.split('\n').map((line, i) => {
-        return `${indent}${line}`;
-    }).join('\n');
-
-    await editor.edit((editBuilder) => {
-        // Replace the comment line with the formatted code
-        const line = editor.document.lineAt(lineNumber);
-        editBuilder.replace(
-            new vscode.Range(
-                new vscode.Position(lineNumber, 0),
-                new vscode.Position(lineNumber, line.text.length)
-            ),
-            `${formattedCode}`
-        );
-    });
-
-    // Notify user of successful insertion
-    vscode.window.showInformationMessage("✅ CodeGenie: Code inserted successfully!");
-}
-
+// This method is called when your extension is deactivated
 export function deactivate() {
-    // Make sure we show the login page next time the extension is activated
-    // This is handled by the activate function
+    console.log('Extension "codegenie" is now deactivated!');
 }

@@ -1,9 +1,7 @@
+import { Webview, Uri } from "vscode";
+
 export function getCodeConversionContent(
-    sourceCode: string,
-    convertedCode: string,
-    sourceLanguage: string,
-    targetLanguage: string
-): string {
+webview: Webview, extensionUri: Uri, sourceCode: string, convertedCode: string, sourceLanguage: string, targetLanguage: string): string {
     function escapeHtml(text: string): string {
         return text
             .replace(/&/g, "&amp;")
