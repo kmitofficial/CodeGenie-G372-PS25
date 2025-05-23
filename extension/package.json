@@ -14,35 +14,62 @@
   "contributes": {
     "commands": [
       {
+        "command": "codegenie.showMenu",
+        "title": "CodeGenie: Show Menu"
+      },
+      {
         "command": "codegenie.processAIComment",
         "title": "CodeGenie: Process AI Comment"
       },
       {
-        "command": "codegenie.acceptInlineCompletion",
-        "title": "CodeGenie: Accept Inline Completion"
-      },
-      {
         "command": "codegenie.convertCode",
         "title": "CodeGenie: Convert Code"
+      },
+      {
+        "command": "codegenie.removeAllComments",
+        "title": "CodeGenie: Remove All Comments"
+      },
+      {
+        "command": "codegenie.analyzeCode",
+        "title": "CodeGenie: Analyze the Code"
+      },
+      {
+        "command": "codegenie.optimizeCode",
+        "title": "CodeGenie: Optimize the Code"
       }
     ],
     "keybindings": [
       {
-        "command": "codegenie.processAIComment",
-        "key": "ctrl+alt+g",
-        "when": "editorTextFocus"
-      },
-      {
-        "command": "codegenie.acceptInlineCompletion",
+        "command": "codegenie.showMenu",
         "key": "ctrl+alt+c",
-        "when": "editorTextFocus && inlineSuggestionVisible"
+        "mac": "cmd+alt+c"
       },
       {
-        "command": "codegenie.convertCode",
-        "key": "ctrl+alt+t",
+        "key": "ctrl+alt+k",
+        "command": "codegenie.removeAllComments",
         "when": "editorTextFocus"
       }
-    ]
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "codegenie-sidebar",
+          "title": "CodeGenie",
+          "icon": "src/resources/codegenie_icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "codegenie-sidebar": [
+        {
+          "id": "codegenieView",
+          "name": "CodeGenie Actions",
+          "icon": "src/resources/codegenie_icon.svg",
+          "type": "webview",
+          "contextualTitle": "CodeGenie"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
@@ -53,38 +80,37 @@
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js",
-    "build-webview": "cd webview && npm run build"
+    "test": "node ./out/test/runTest.js"
   },
   "devDependencies": {
     "@types/glob": "^8.1.0",
     "@types/mocha": "^10.0.1",
     "@types/node": "20.x",
-    "@types/react": "^18.2.15",
-    "@types/react-dom": "^18.2.7",
+    "@types/react": "^18.3.21",
+    "@types/react-dom": "^18.3.7",
     "@types/react-syntax-highlighter": "^15.5.11",
     "@types/vscode": "^1.60.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
     "@vscode/test-electron": "^2.3.8",
-    "autoprefixer": "^10.4.14",
-    "css-loader": "^6.8.1",
+    "autoprefixer": "^10.4.21",
+    "css-loader": "^6.11.0",
     "eslint": "^8.44.0",
     "glob": "^10.3.3",
     "mocha": "^10.2.0",
-    "postcss": "^8.4.27",
-    "postcss-loader": "^7.3.3",
-    "style-loader": "^3.3.3",
-    "tailwindcss": "^3.3.3",
-    "ts-loader": "^9.4.4",
+    "postcss": "^8.5.3",
+    "postcss-loader": "^7.3.4",
+    "style-loader": "^3.3.4",
+    "tailwindcss": "^3.4.17",
+    "ts-loader": "^9.5.2",
     "typescript": "^5.1.6",
-    "webpack": "^5.88.2",
+    "webpack": "^5.99.8",
     "webpack-cli": "^5.1.4"
   },
   "dependencies": {
     "axios": "^1.4.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "react-syntax-highlighter": "^15.5.0"
   }
 }
