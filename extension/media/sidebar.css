@@ -1,0 +1,88 @@
+/* media/sidebar.css */
+body {
+    font-family: var(--vscode-font-family);
+    color: var(--vscode-editor-foreground);
+    background-color: var(--vscode-sideBar-background);
+    padding: 10px;
+    box-sizing: border-box;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px; /* Space between cards */
+}
+
+.container h1 {
+    font-size: var(--vscode-font-size); /* Use VS Code's standard font size */
+    font-weight: 600;
+    color: var(--vscode-sideBarTitle-foreground); /* Color for sidebar titles */
+    margin-bottom: 12px;
+    padding-left: 5px; /* Align with card content */
+}
+
+.card {
+    display: flex;
+    align-items: center; /* Vertically align icon and text */
+    padding: 10px 12px;
+    border: 1px solid var(--vscode-input-border, var(--vscode-contrastBorder, transparent));
+    border-radius: 4px; /* Slightly rounded corners */
+    background-color: var(--vscode-input-background); /* A common background for interactive elements */
+    cursor: pointer;
+    transition: background-color 0.15s ease-in-out, transform 0.1s ease-in-out;
+    overflow: hidden; /* Ensure content doesn't spill */
+}
+
+.card:hover {
+    background-color: var(--vscode-list-hoverBackground);
+    /* transform: translateY(-1px); Optional: subtle lift effect */
+    border-color: var(--vscode-focusBorder); /* Highlight border on hover */
+}
+
+.card:focus,
+.card:focus-visible { /* For keyboard navigation */
+    outline: 1px solid var(--vscode-focusBorder);
+    outline-offset: -1px; /* Outline inside the border */
+    background-color: var(--vscode-list-focusBackground);
+}
+
+
+.card-icon {
+    margin-right: 10px; /* Space between icon and text */
+    color: var(--vscode-icon-foreground); /* Use theme color for icons */
+    font-size: 20px; /* Adjust as needed, Codicons are font-based */
+    display: flex; /* Center the icon if it's smaller than its container */
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0; /* Prevent icon from shrinking */
+}
+
+.card-icon .codicon { /* Target the codicon span directly */
+    font-size: inherit; /* Make sure it inherits the size from .card-icon */
+}
+
+.card-content {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1; /* Allow content to take available space */
+    min-width: 0; /* Prevent overflow issues with flex children */
+}
+
+.card-content h3 {
+    margin: 0 0 3px 0;
+    font-size: 0.95em; /* Slightly smaller than default for card titles */
+    font-weight: 600; /* Make title bold */
+    color: var(--vscode-editor-foreground);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* Add ellipsis if title is too long */
+}
+
+.card-content p {
+    margin: 0;
+    font-size: 0.85em; /* Smaller for description */
+    color: var(--vscode-descriptionForeground, var(--vscode-foreground)); /* Use description color or fallback */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* Add ellipsis if description is too long */
+}

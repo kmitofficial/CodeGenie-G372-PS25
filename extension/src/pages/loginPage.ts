@@ -1,4 +1,6 @@
-export function getLoginPageContent(): string {
+import { Webview, Uri } from "vscode";
+
+export function getLoginPageContent(webview: Webview, extensionUri: Uri): string {
     return `<!DOCTYPE html>
 <html lang="en">
 <head>

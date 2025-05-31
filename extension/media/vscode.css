@@ -1,0 +1,49 @@
+/* media/vscode.css */
+/*
+  This file can be a copy of the vscode.css from VS Code's extension samples
+  or a minimal set of CSS variables you want to ensure are available.
+  For instance: https://github.com/microsoft/vscode-extension-samples/blob/main/webview-view-sample/media/main.css
+  Often, just linking to it is enough if your extension provides it,
+  but it's safer to include the necessary styles for theme variables.
+
+  A minimal version might just redefine some key variables if you don't want to include the whole file.
+  However, the webview environment usually provides these if you're using `webview.cspSource` correctly.
+  The `sidebar.css` already uses `var(--vscode-...)` variables, which should work if the
+  webview is set up correctly.
+
+  If you find theme colors are not working, ensure your CSP in `_getHtmlForWebview`
+  includes `style-src ${webview.cspSource} 'unsafe-inline';` (the 'unsafe-inline' is for dynamically
+  added styles by VS Code itself, but try to avoid it for your own styles).
+  The `font-src ${webview.cspSource};` is also important for Codicons.
+*/
+
+/* Ensure codicon font is loaded */
+@font-face {
+  font-family: "codicon";
+  src: url("$(root)/node_modules/@vscode/codicons/dist/codicon.ttf") format("truetype");
+  /*
+    IMPORTANT: The path above is a placeholder.
+    You need to ensure the codicon.ttf font file is accessible to your webview.
+    One way is to copy it to your 'media' folder during your build process and link it:
+    src: url('./codicon.ttf') format('truetype');
+    Or, if VS Code makes it available via a variable (less common for direct font files in webviews):
+    src: var(--vscode-icon-font-path) format('truetype');
+
+    For simplicity, VS Code often injects the necessary styles for codicons if the
+    HTML structure <span class="codicon codicon-your-icon"></span> is used and the
+    CSP allows font loading (`font-src ${webview.cspSource};`).
+    The `sidebarProvider.ts` already includes `font-src ${webview.cspSource};` in the CSP.
+  */
+}
+
+/* Basic styles to ensure VS Code variables are applied if not already */
+body {
+  background-color: var(--vscode-editor-background);
+  color: var(--vscode-editor-foreground);
+  font-family: var(--vscode-font-family);
+  font-weight: var(--vscode-font-weight);
+  font-size: var(--vscode-font-size);
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* Often good for webview bodies */
+}
