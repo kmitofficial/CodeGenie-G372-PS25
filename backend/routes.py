@@ -1,14 +1,22 @@
 from flask import request, jsonify # type: ignore
+<<<<<<< HEAD
 import json
+=======
+>>>>>>> origin/main
 from utils.generator import generator
 from utils.prompts import (
     format_prompt,
     format_conversion_prompt,
     format_bug_detection_prompt,
     format_optimization_prompt,
+<<<<<<< HEAD
     format_project_analysis_prompt,
 )
 from utils.cleaner import clean_response, extract_json_from_response, validate_and_fix_line_numbers, pre_analyze_code_structure
+=======
+)
+from utils.cleaner import clean_response, extract_json_from_response
+>>>>>>> origin/main
 import logging
 import traceback
 
@@ -28,7 +36,10 @@ def register_routes(app):
             result = generator(formatted_prompt, do_sample=True)
             generated_text = result[0]['generated_text']
             response = generated_text[len(formatted_prompt):].strip()
+<<<<<<< HEAD
             print(response)
+=======
+>>>>>>> origin/main
             refined_code = clean_response(response, language_id)
             
             return jsonify({"status": "success", "response": response, "refined_code": refined_code})
@@ -61,6 +72,7 @@ def register_routes(app):
             data = request.json
             code = data.get('code', '')
             language_id = data.get('language_id', 'python')
+<<<<<<< HEAD
             
             if not code.strip():
                 return jsonify({
@@ -125,6 +137,20 @@ def register_routes(app):
             
         except Exception as e:
             logger.error(f"Analysis error: {traceback.format_exc()}")
+=======
+            prompt = format_bug_detection_prompt(code, language_id)
+            
+            result = generator(prompt, do_sample=True)
+            response = result[0]['generated_text'][len(prompt):].strip()
+            analysis_json = extract_json_from_response(response) or {
+                "issues": [],
+                "summary": "Analysis failed to produce properly structured results."
+            }
+
+            return jsonify({"status": "success", "analysis": analysis_json})
+        except Exception as e:
+            logger.error(traceback.format_exc())
+>>>>>>> origin/main
             return jsonify({"status": "error", "error": str(e)}), 500
 
     @app.route('/optimize', methods=['POST'])
@@ -133,6 +159,7 @@ def register_routes(app):
             data = request.json
             code = data.get('code', '')
             language_id = data.get('language_id', 'python')
+<<<<<<< HEAD
             
             if not code.strip():
                 return jsonify({
@@ -214,3 +241,18 @@ def register_routes(app):
             logger.error(traceback.format_exc())
             return jsonify({"status": "error", "error": str(e)}), 500
         
+=======
+            prompt = format_optimization_prompt(code, language_id)
+
+            result = generator(prompt, do_sample=True)
+            response = result[0]['generated_text'][len(prompt):].strip()
+            optimization_json = extract_json_from_response(response) or {
+                "optimizations": [],
+                "summary": "Optimization analysis failed to produce properly structured results."
+            }
+
+            return jsonify({"status": "success", "optimizations": optimization_json})
+        except Exception as e:
+            logger.error(traceback.format_exc())
+            return jsonify({"status": "error", "error": str(e)}), 500
+>>>>>>> origin/main

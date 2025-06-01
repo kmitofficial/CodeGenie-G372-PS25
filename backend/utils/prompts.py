@@ -72,6 +72,7 @@ CODE TO OPTIMIZE ({language_id}):
 
 JSON RESPONSE:
 """
+<<<<<<< HEAD
 
 def format_project_analysis_prompt(project_files):
     return f"""You are a project analysis assistant specializing in code review, architecture analysis, and documentation.
@@ -140,3 +141,5 @@ JSON RESPONSE:
 
 
 
+=======
+>>>>>>> origin/main

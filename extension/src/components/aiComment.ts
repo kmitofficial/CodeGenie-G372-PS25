@@ -115,7 +115,7 @@ export function registerProcessAICommentCommand(context: vscode.ExtensionContext
                 editor.selection = new vscode.Selection(cursorPosition, cursorPosition);
 
                 // Format the AI response with proper indentation for multi-line display
-                const formattedResponse = aiResponse.split('\n').map((line, index) => {
+                const formattedResponse = aiResponse.split('\n').map((line: any, index: any) => {
                     return `${originalIndent}${line}`;
                 }).join('\n');
 
