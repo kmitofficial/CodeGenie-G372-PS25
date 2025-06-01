@@ -19,6 +19,7 @@ export function registerShowMenuCommand(context: vscode.ExtensionContext) {
             { label: "$(clear-all) Remove Comments", description: "Removes all types of comments form the entire file", command: "codegenie.removeAllComments"},
             { label: "$(bug) Analyze the Code", description: "Identify potential bugs, edge cases, and suggest fixes", command: "codegenie.analyzeCode" },
             { label: "$(star) Optimize the Code", description: "Optimizes the code to the core", command: "codegenie.optimizeCode" },
+            { label: "$(project) Project Analysis", description: "Get a summary, issues, fixes, and README walkthrough", command: "codegenie.analyzeProject" },
         ];
 
         const selectedOption = await vscode.window.showQuickPick(menuOptions, {

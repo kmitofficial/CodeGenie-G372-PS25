@@ -46,3 +46,4 @@ const extensionConfig = {
   },
 };
 module.exports = [ extensionConfig ];
+

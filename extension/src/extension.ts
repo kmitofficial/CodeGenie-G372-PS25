@@ -7,6 +7,7 @@ import { registerCommentRemovalCommand } from "./components/commentRemoval";
 import { registerAnalyzeCodeCommand } from "./components/analyzeCode";
 import { registerOptimizationCommands } from "./components/optimizeCode";
 import { CodeGenieSidebarProvider } from "./providers/sidebarProvider";
+import { registerProjectAnalysisCommand } from "./components/projectAnalysis";
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('🚀 Extension "codegenie" is now active!');
@@ -19,6 +20,7 @@ export function activate(context: vscode.ExtensionContext) {
     registerCommentRemovalCommand(context);
     registerAnalyzeCodeCommand(context);
     registerOptimizationCommands(context);
+    registerProjectAnalysisCommand(context);
 
     const completionProvider = vscode.languages.registerInlineCompletionItemProvider(
         { pattern: "**" },

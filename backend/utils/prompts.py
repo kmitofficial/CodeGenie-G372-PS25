@@ -72,3 +72,74 @@ CODE TO OPTIMIZE ({language_id}):
 
 JSON RESPONSE:
 """
+<<<<<<< HEAD
+
+def format_project_analysis_prompt(project_files):
+    return f"""You are a project analysis assistant specializing in code review, architecture analysis, and documentation.
+Analyze the following project files and provide a comprehensive report.
+
+PROJECT FILES:
+{project_files}
+
+Your response MUST follow this exact JSON format:
+{{
+  "project_summary": {{
+    "title": "Brief descriptive title for the project",
+    "description": "Detailed description of what the project does, its purpose, and its main features",
+    "technology_stack": ["List of technologies, languages, and frameworks used in the project"],
+    "architecture": "Analysis of the project's architecture, including how components interact"
+  }},
+  "issues": [
+    {{
+      "file": "path/to/file",
+      "type": "bug|vulnerability|architecture|performance|logic",
+      "description": "Detailed description of the issue",
+      "severity": "high|medium|low",
+      "fix": "Suggested fix or approach to resolve the issue"
+    }}
+  ],
+  "readme": {{
+    "title": "Project Title",
+    "description": "Brief project description",
+    "installation": "Steps to install and set up the project",
+    "usage": "Instructions on how to use the project",
+    "workflow": "Detailed workflow of how the project operates",
+    "components": [
+      {{
+        "name": "Component Name",
+        "description": "Description of what this component does",
+        "files": ["List of files that make up this component"]
+      }}
+    ]
+  }},
+  "summary": "Overall assessment of the project, including strengths, weaknesses, and recommendations for improvement"
+}}
+
+JSON RESPONSE:
+"""
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+=======
+>>>>>>> origin/main

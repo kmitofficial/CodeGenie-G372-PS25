@@ -1,8 +1,8 @@
 import * as vscode from "vscode";
 import { analyzeCode } from "../services/apiService";
 import { getLoadingAnimation } from "../resources/getLoadingAnimation"; 
-import { generateBugAnalysisContent } from "../templates/analyzeCodeTemplate";
-import { applyFix } from "../templates/analyzeCodeTemplate";
+import { generateBugAnalysisContent } from "../pages/analyzeCodePage";
+import { applyFix } from "../pages/analyzeCodePage";
 import { getErrorContent } from "../resources/getErrorContent";
 
 export function registerAnalyzeCodeCommand(context: vscode.ExtensionContext) {

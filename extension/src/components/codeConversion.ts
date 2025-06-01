@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { convertCodeLang } from "../services/apiService";
 import { SUPPORTED_LANGUAGES } from "../constants";
 import { getLoadingAnimation } from "../resources/getLoadingAnimation";
-import { getCodeConversionContent, mapLanguageId } from "../templates/codeConversionTemplate";
+import { getCodeConversionContent, mapLanguageId } from "../pages/codeConversionPage";
 import { CONFIG } from "../constants";
 import { getErrorContent } from "../resources/getErrorContent";
 

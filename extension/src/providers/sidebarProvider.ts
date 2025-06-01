@@ -22,6 +22,7 @@ export class CodeGenieSidebarProvider implements vscode.WebviewViewProvider {
         { label: "Remove Comments", description: "Removes all types of comments", command: "codegenie.removeAllComments", icon: "clear-all" },
         { label: "Analyze the Code", description: "Identify potential bugs and suggest fixes", command: "codegenie.analyzeCode", icon: "bug" },
         { label: "Optimize the Code", description: "Optimizes the code to the core", command: "codegenie.optimizeCode", icon: "star" },
+        { label: "Project Analysis", description: "Get a summary, issues, fixes, and README walkthrough", command: "codegenie.analyzeProject", icon: "project" },
     ];
 
     constructor(private readonly context: vscode.ExtensionContext) {

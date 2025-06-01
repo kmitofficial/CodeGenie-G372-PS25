@@ -3,7 +3,7 @@ import { generateCodeFromAI } from "../services/apiService";
 import { CodeGenieCompletionProvider } from "../providers/completionProvider";
 import { CONFIG } from "../constants";
 import { getLoadingAnimation } from "../resources/getLoadingAnimation";
-import { getWebviewContent } from "../templates/previewTemplate"; 
+import { getWebviewContent } from "../pages/previewPage"; 
 import { getErrorContent } from "../resources/getErrorContent";
 
 interface PreviewPanelOptions {
@@ -66,35 +66,84 @@ export function registerProcessAICommentCommand(context: vscode.ExtensionContext
             }
 
             if (lineCount <= CONFIG.GHOST_PREVIEW_MAX_LINES) {
-                CodeGenieCompletionProvider.setCurrentCompletion({
-                    line: lineNumber + 1,
-                    text: aiResponse,
-                    indent: originalIndent
-                });
+                // Close the loading panel first
+                panel.dispose();
 
                 const nextLineNumber = lineNumber + 1;
                 let needsNewLine = true;
+                
+                // Check if we need to create a new line
                 if (nextLineNumber < document.lineCount) {
                     if (document.lineAt(nextLineNumber).isEmptyOrWhitespace) {
                         needsNewLine = false;
                     }
                 }
 
+                // Insert new line if needed
                 if (needsNewLine) {
                     await editor.edit((editBuilder) => {
                         editBuilder.insert(
                             new vscode.Position(lineNumber, lineObject.text.length),
-                            "\n" + originalIndent
+                            "\n"
                         );
                     });
                 }
 
-                const nextLinePos = new vscode.Position(lineNumber + 1, originalIndent.length);
-                editor.selection = new vscode.Selection(nextLinePos, nextLinePos);
+                // Position cursor at the beginning of the next line with proper indentation
+                const targetLineNumber = needsNewLine ? lineNumber + 1 : lineNumber + 1;
+                const targetLine = editor.document.lineAt(targetLineNumber);
+                
+                // If the line is empty or only has whitespace, position cursor appropriately
+                let cursorPosition: vscode.Position;
+                if (targetLine.isEmptyOrWhitespace) {
+                    // Insert indentation if the line is completely empty
+                    if (targetLine.text.length === 0) {
+                        await editor.edit((editBuilder) => {
+                            editBuilder.insert(
+                                new vscode.Position(targetLineNumber, 0),
+                                originalIndent
+                            );
+                        });
+                    }
+                    cursorPosition = new vscode.Position(targetLineNumber, originalIndent.length);
+                } else {
+                    // Position at the end of existing content
+                    cursorPosition = new vscode.Position(targetLineNumber, targetLine.text.length);
+                }
 
-                panel.dispose(); // Remove loading screen
+                // Set cursor position
+                editor.selection = new vscode.Selection(cursorPosition, cursorPosition);
+
+                // Format the AI response with proper indentation for multi-line display
+                const formattedResponse = aiResponse.split('\n').map((line: any, index: any) => {
+                    return `${originalIndent}${line}`;
+                }).join('\n');
+
+                // Set the completion data AFTER positioning cursor, with formatted text
+                CodeGenieCompletionProvider.setCurrentCompletion({
+                    line: targetLineNumber,
+                    text: formattedResponse,
+                    indent: originalIndent
+                });
+
+                // Small delay to ensure the editor state is updated
+                await new Promise(resolve => setTimeout(resolve, 150));
+
+                // Use a more comprehensive approach to trigger inline suggestions
                 await vscode.commands.executeCommand('editor.action.inlineSuggest.trigger');
-                // vscode.window.showInformationMessage("💡 CodeGenie: Suggestion ready (Press Tab to accept).");
+                
+                // Wait a bit more and try alternative suggestion commands
+                await new Promise(resolve => setTimeout(resolve, 50));
+                await vscode.commands.executeCommand('editor.action.inlineSuggest.showNext');
+                await new Promise(resolve => setTimeout(resolve, 50));
+                await vscode.commands.executeCommand('editor.action.inlineSuggest.showPrevious');
+
+                // Force refresh the inline suggestions
+                await new Promise(resolve => setTimeout(resolve, 50));
+                await vscode.commands.executeCommand('editor.action.inlineSuggest.trigger');
+
+                // Optional: Show a subtle notification
+                vscode.window.showInformationMessage("💡 CodeGenie: Multi-line suggestion ready (Press Tab to accept).", {modal: false});
 
             } else {
                 panel.dispose(); // Remove loading screen

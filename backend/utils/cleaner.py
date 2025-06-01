@@ -35,3 +35,26 @@ def extract_json_from_response(text):
     except Exception as e:
         logger.error(f"JSON extraction failed: {str(e)}")
     return None
+<<<<<<< HEAD
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+=======
+>>>>>>> origin/main
